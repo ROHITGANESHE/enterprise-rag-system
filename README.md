@@ -54,8 +54,6 @@ Example from code: :contentReference[oaicite:0]{index=0}
 ---
 
 ## 🛠️ Installation
-
-```bash
 git clone https://github.com/your-username/enterprise-rag-system.git
 cd enterprise-rag-system
 
