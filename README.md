@@ -1,4 +1,4 @@
-```markdown
+
 # 🧠 Enterprise RAG System (Amazon Bedrock + Streamlit)
 
 An advanced **Retrieval-Augmented Generation (RAG)** application that allows users to query company documents and receive **accurate, context-aware answers with citations**.
@@ -21,7 +21,7 @@ Built using **Streamlit UI + Amazon Bedrock + S3 Knowledge Base**.
 
 ## 🏗️ Project Architecture
 
-```
+
 
 User → Streamlit UI → RAG Pipeline → Amazon Bedrock
 ↘ Upload Docs → S3 Bucket → Knowledge Base
