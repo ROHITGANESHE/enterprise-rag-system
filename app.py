@@ -1,250 +1,293 @@
 # ============================================================
-# FILE: app.py
-# PURPOSE: Streamlit web application — the UI users see
+# FILE: app.py  —  Enterprise RAG  |  Simple Clean UI
 # ============================================================
 
-# --- Standard Python libraries ---
-import os           # os = for file path operations (os.path.join etc.)
-import tempfile     # tempfile = gives us the system's temp folder path
-                    # Windows → C:\Users\Name\AppData\Local\Temp
-                    # Linux   → /tmp
+import os
+import tempfile
+import streamlit as st
 
-# --- Streamlit ---
-import streamlit as st  # st = the entire Streamlit library
+# ── Must be FIRST st.* call ────────────────────────────────
+st.set_page_config(
+    page_title="Enterprise Knowledge Base",
+    page_icon="◈",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- Our own files ---
 from bedrock_rag import query_knowledge_base, upload_document_to_s3
 from config import APP_TITLE, APP_ICON, S3_BUCKET_NAME
 
 
-# ============================================================
-# SECTION 1: Page Configuration
-# Must be the FIRST Streamlit command — before anything else
-# ============================================================
-st.set_page_config(
-    page_title=APP_TITLE,         # text in browser tab
-    page_icon=APP_ICON,           # emoji/icon in browser tab
-    layout="wide",                # "wide" uses full browser width
-    initial_sidebar_state="expanded"  # sidebar is open on load
-)
-
-
-# ============================================================
-# SECTION 2: Custom CSS Styling
-# st.markdown with unsafe_allow_html=True lets us inject CSS
-# ============================================================
+# ══════════════════════════════════════════════════════════
+#  CSS  —  Simple Clean Light UI
+# ══════════════════════════════════════════════════════════
 st.markdown("""
-    <style>
-        /* Style the main chat container */
-        .main { padding-top: 2rem; }
-        
-        /* Style citation boxes */
-        .citation-box {
-            background-color: #f0f2f6;
-            border-left: 4px solid #FF6B35;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 0 5px 5px 0;
-            font-size: 0.85em;
-        }
-        
-        /* Style the header */
-        .header-text { color: #1a1a2e; }
-    </style>
+<style>
+/* Hide Streamlit chrome */
+#MainMenu, footer { visibility: hidden !important; }
+header[data-testid="stHeader"] { background: transparent !important; }
+
+/* Stat cards */
+.stat-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  text-align: center;
+}
+.stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+.stat-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* Citation row */
+.cite-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  border-left: 3px solid #3b82f6;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 4px;
+}
+
+/* Title accent */
+.title-accent {
+  width: 36px;
+  height: 2px;
+  background: #3b82f6;
+  border-radius: 2px;
+  margin: 6px 0 16px 0;
+}
+
+/* Section tag */
+.section-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 1.25rem 0 0.6rem;
+}
+.section-tag-line {
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+.section-tag-text {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 99px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #16a34a;
+}
+.badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #16a34a;
+}
+
+/* Sidebar brand */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 1.25rem;
+}
+.sidebar-brand-text {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1e293b;
+}
+</style>
 """, unsafe_allow_html=True)
-# unsafe_allow_html=True is needed to inject raw HTML/CSS
-# Be careful with this — only use trusted HTML
 
 
-# ============================================================
-# SECTION 3: Sidebar
-# The sidebar appears on the left side of the screen
-# ============================================================
+# ══════════════════════════════════════════════════════════
+#  SIDEBAR
+# ══════════════════════════════════════════════════════════
 with st.sidebar:
-    # st.sidebar.X puts any Streamlit element into the sidebar
-    
-    st.title("Settings & Info")
-    st.divider()  # draws a horizontal line
-    
-    # --- Info about the Knowledge Base ---
-    st.subheader("Knowledge Base")
-    st.info(f"S3 Bucket: `{S3_BUCKET_NAME}`")
-    # st.info() shows a blue info box
-    
-    st.divider()
-    
-    # --- Document Upload Section ---
-    st.subheader("Upload Documents")
-    st.write("Upload new documents to add to the knowledge base.")
-    
-    # st.file_uploader() creates a drag-and-drop file upload widget
+
+    # Brand
+    st.markdown("""
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-text">◈ RAG System</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="badge"><span class="badge-dot"></span>Knowledge Base Live</div>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Knowledge Base ──
+    st.markdown("""<div class="section-tag">
+      <div class="section-tag-line"></div>
+      <div class="section-tag-text">Knowledge Base</div>
+      <div class="section-tag-line"></div>
+    </div>""", unsafe_allow_html=True)
+
+    st.info(f"Bucket: `{S3_BUCKET_NAME}`")
+
+    # ── Upload ──
+    st.markdown("""<div class="section-tag">
+      <div class="section-tag-line"></div>
+      <div class="section-tag-text">Upload Docs</div>
+      <div class="section-tag-line"></div>
+    </div>""", unsafe_allow_html=True)
+
+    st.write("Add documents to the knowledge base.")
+
     uploaded_file = st.file_uploader(
         label="Choose a file",
-        type=["pdf", "txt", "docx"],   # only these file types allowed
-        help="Upload PDF, TXT, or DOCX files"
-        # help= shows a tooltip when user hovers over the widget
+        type=["pdf", "txt", "docx"],
+        help="PDF, TXT or DOCX"
     )
-    
-    # If a file was uploaded, show an upload button
+
     if uploaded_file is not None:
-        if st.button("Upload to S3"):
-            # st.button() returns True when clicked
-            
-            # Show a loading spinner while uploading
+        if st.button("⬆  Upload to S3"):
             with st.spinner("Uploading..."):
-                # st.spinner() shows an animated spinner inside the 'with' block
-                
-                # Save uploaded file temporarily to disk
-                # uploaded_file.name = original file name
-                # CORRECT — works on both Windows and Linux
                 temp_path = os.path.join(tempfile.gettempdir(), uploaded_file.name)
-                
-                
-                # Write the file bytes to disk
                 with open(temp_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
-                # uploaded_file.getbuffer() = returns raw bytes of the file
-                
-                # Upload to S3 using our function from bedrock_rag.py
                 success = upload_document_to_s3(temp_path, uploaded_file.name)
-                
                 if success:
-                    # st.success() shows a green success box
-                    st.success(f"Uploaded! Now sync your Bedrock KB.")
+                    st.success("Done! Sync your Bedrock KB.")
                 else:
-                    # st.error() shows a red error box
-                    st.error("Upload failed. Check logs.")
-    
-    st.divider()
-    
-    # --- How to Use guide ---
-    st.subheader("How to use")
+                    st.error("Upload failed — check logs.")
+
+    # ── How to use ──
+    st.markdown("""<div class="section-tag">
+      <div class="section-tag-line"></div>
+      <div class="section-tag-text">How to use</div>
+      <div class="section-tag-line"></div>
+    </div>""", unsafe_allow_html=True)
+
     st.markdown("""
     1. Type your question below
-    2. Press Enter or click Send
-    3. View the AI answer
-    4. Expand 'Sources' to see citations
+    2. Press **Enter** to submit
+    3. Read the AI-generated answer
+    4. Expand **Sources** for citations
     """)
-    
-    # --- Clear chat button ---
-    st.divider()
-    if st.button("Clear Chat History"):
-        # Reset the messages list in session state
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("↺  Clear History"):
         st.session_state.messages = []
-        # st.rerun() refreshes the entire page
         st.rerun()
 
 
-# ============================================================
-# SECTION 4: Main Page Header
-# ============================================================
-st.title(f"{APP_ICON} {APP_TITLE}")
-st.caption("Ask questions about company documents — get accurate, cited answers powered by Amazon Bedrock RAG.")
-# st.caption() = smaller gray text, good for subtitles
+# ══════════════════════════════════════════════════════════
+#  MAIN HEADER
+# ══════════════════════════════════════════════════════════
+st.markdown(f"""
+<div style="margin-bottom: 0.25rem;">
+  <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;
+              color:#94a3b8;margin-bottom:0.4rem;">
+    ◈ Enterprise Intelligence
+  </div>
+  <h1 style="font-size:1.9rem;font-weight:700;color:#0f172a;margin:0;">{APP_ICON} {APP_TITLE}</h1>
+  <div class="title-accent"></div>
+  <p style="color:#64748b;font-size:0.88rem;margin:0;">
+    Ask questions about company documents — accurate, cited answers via Amazon Bedrock RAG.
+  </p>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Stat strip ──
+msg_count = len([m for m in st.session_state.get("messages", []) if m["role"] == "user"])
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown(
+        '<div class="stat-card"><div class="stat-label">Engine</div>'
+        '<div class="stat-value">Amazon Bedrock</div></div>',
+        unsafe_allow_html=True
+    )
+with col2:
+    st.markdown(
+        '<div class="stat-card"><div class="stat-label">Method</div>'
+        '<div class="stat-value">RAG Pipeline</div></div>',
+        unsafe_allow_html=True
+    )
+with col3:
+    st.markdown(
+        f'<div class="stat-card"><div class="stat-label">Queries</div>'
+        f'<div class="stat-value">{msg_count} this session</div></div>',
+        unsafe_allow_html=True
+    )
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 
-# ============================================================
-# SECTION 5: Session State — Chat History
-# 
-# WHAT IS SESSION STATE?
-# Streamlit re-runs the ENTIRE script every time the user
-# interacts (types, clicks, etc.). Without session_state,
-# all variables reset on every interaction.
-# 
-# st.session_state = a dictionary that PERSISTS across reruns.
-# We store chat messages here so they don't disappear.
-# ============================================================
-
-# Check if "messages" key exists in session state
-# If not, initialize it as an empty list
+# ══════════════════════════════════════════════════════════
+#  SESSION STATE
+# ══════════════════════════════════════════════════════════
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    # messages will be a list of dicts like:
-    # {"role": "user",      "content": "What is the leave policy?"}
-    # {"role": "assistant", "content": "According to the handbook..."}
 
 
-# ============================================================
-# SECTION 6: Display All Previous Chat Messages
-# Loop through stored messages and render each one
-# ============================================================
+# ══════════════════════════════════════════════════════════
+#  CHAT HISTORY
+# ══════════════════════════════════════════════════════════
 for message in st.session_state.messages:
-    
-    # st.chat_message() creates a chat bubble
-    # role = "user" shows a user avatar
-    # role = "assistant" shows a bot avatar
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-        # st.markdown() renders text with markdown formatting
-        # (bold, italics, bullet points, etc.)
 
 
-# ============================================================
-# SECTION 7: Chat Input Box
-# 
-# st.chat_input() creates the text box at the bottom of the page
-# It returns the text when the user presses Enter, else None
-# The := is the "walrus operator" — assigns AND checks in one line
-# ============================================================
-if question := st.chat_input("Ask a question about company documents..."):
-    # This block only runs when the user submits a question
-    
-    # --- Display the user's question in the chat ---
+# ══════════════════════════════════════════════════════════
+#  CHAT INPUT
+# ══════════════════════════════════════════════════════════
+if question := st.chat_input("Ask anything about your company documents…"):
+
     with st.chat_message("user"):
         st.markdown(question)
-    
-    # --- Save user message to session state ---
-    st.session_state.messages.append({
-        "role": "user",
-        "content": question
-    })
-    
-    # --- Query Bedrock and display answer ---
+
+    st.session_state.messages.append({"role": "user", "content": question})
+
     with st.chat_message("assistant"):
-        # Show a loading spinner while waiting for Bedrock
-        with st.spinner("Searching knowledge base and generating answer..."):
-            
-            # Call our RAG function (defined in bedrock_rag.py)
-            # This returns a dict: {"success": True, "answer": "...", "citations": [...]}
+        with st.spinner("Searching knowledge base…"):
             result = query_knowledge_base(question)
-        
+
         if result["success"]:
-            # --- Show the answer ---
             st.markdown(result["answer"])
-            
-            # --- Show citations in a collapsible section ---
-            # st.expander() creates a collapsible section
+
             if result["citations"]:
-                with st.expander(f"📎 View Sources ({len(result['citations'])} documents used)"):
-                    # Loop through each citation
+                with st.expander(f"◎  Sources  —  {len(result['citations'])} document(s) referenced"):
                     for i, citation in enumerate(result["citations"], start=1):
-                        # start=1 means enumerate starts counting from 1, not 0
-                        
-                        # Format the S3 path nicely
-                        # s3://my-bucket/documents/file.pdf → file.pdf
-                        source_path = citation["source"]
-                        file_name   = source_path.split("/")[-1]
-                        # .split("/") splits "s3://bucket/docs/file.pdf" into a list
-                        # [-1] gets the last element = "file.pdf"
-                        
-                        # Display each citation
-                        st.markdown(f"**Source {i}: `{file_name}`**")
+                        file_name = citation["source"].split("/")[-1]
+                        st.markdown(
+                            f'<div class="cite-header">Source {i} &nbsp;/&nbsp; {file_name}</div>',
+                            unsafe_allow_html=True
+                        )
                         st.markdown(f"> {citation['excerpt']}")
-                        # > in markdown = blockquote (indented gray text)
-                        
                         if i < len(result["citations"]):
-                            st.divider()  # line between citations
+                            st.divider()
             else:
-                # No citations means the AI answered from general knowledge
-                # (should not happen with a well-configured Knowledge Base)
-                st.warning("No specific citations found for this answer.")
-        
+                st.warning("No citations found for this answer.")
         else:
-            # Something went wrong — show the error
             st.error(f"Error: {result['answer']}")
-    
-    # --- Save assistant response to session state ---
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": result["answer"]
-    })
+
+    st.session_state.messages.append({"role": "assistant", "content": result["answer"]})
